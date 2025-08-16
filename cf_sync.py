@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 
 # -------- CONFIG --------
@@ -29,7 +28,8 @@ def get_driver():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
-    service = Service(ChromeDriverManager().install())
+    # Use the ChromeDriver path from the .yml file
+    service = Service("/usr/local/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=chrome_options)
     return driver
 
@@ -39,7 +39,6 @@ def login_with_selenium(driver):
     driver.get(LOGIN_URL)
     
     try:
-        # Wait for username/password fields to be visible
         username_field = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.NAME, "handleOrEmail"))
         )
@@ -48,16 +47,13 @@ def login_with_selenium(driver):
         username_field.send_keys(CF_USER)
         password_field.send_keys(CF_PASS)
         
-        # Click the login button
         driver.find_element(By.CSS_SELECTOR, ".submit").click()
 
-        # Wait for the login to be successful
         WebDriverWait(driver, 10).until(
             EC.url_contains("/profile/")
         )
         print("✅ Login successful with Selenium.")
         
-        # Get cookies and headers to use with requests session
         cookies = driver.get_cookies()
         for cookie in cookies:
             SESSION.cookies.set(cookie['name'], cookie['value'])
@@ -68,7 +64,7 @@ def login_with_selenium(driver):
         
     except Exception as e:
         print(f"Login failed: {e}")
-        driver.save_screenshot("login_error.png") # For debugging on GitHub Actions
+        driver.save_screenshot("login_error.png")
         raise
 
 
@@ -103,7 +99,7 @@ def save_solution(sub):
 
     file_path = os.path.join(folder, f"{problem_index}{ext}")
     if os.path.exists(file_path):
-        return  # Skip if already exists
+        return
 
     print(f"Attempting to fetch code for submission {sub['id']}...")
     code = fetch_code(contest_id, sub["id"])
