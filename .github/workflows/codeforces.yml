@@ -29,10 +29,10 @@ jobs:
           echo "Chrome major version is: $CHROME_VERSION"
 
           # Get the latest ChromeDriver URL for the major version
-          DRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build.json" | jq -r ".builds.\"$CHROME_VERSION\".version")
+          DRIVER_VERSION=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json | jq -r ".milestones.\"$CHROME_VERSION\".downloads.chromedriver | .[] | .url" | grep 'linux64')
 
           # Download and install ChromeDriver
-          wget "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$DRIVER_URL/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip
+          wget "$DRIVER_VERSION" -O /tmp/chromedriver.zip
           unzip /tmp/chromedriver.zip -d /tmp/
           sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
           sudo chmod +x /usr/local/bin/chromedriver
