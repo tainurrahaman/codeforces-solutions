@@ -39,7 +39,8 @@ def login_with_selenium(driver):
     driver.get(LOGIN_URL)
     
     try:
-        username_field = WebDriverWait(driver, 10).until(
+        # Increase the timeout to 20 seconds
+        username_field = WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.NAME, "handleOrEmail"))
         )
         password_field = driver.find_element(By.NAME, "password")
@@ -49,7 +50,7 @@ def login_with_selenium(driver):
         
         driver.find_element(By.CSS_SELECTOR, ".submit").click()
 
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 20).until(
             EC.url_contains("/profile/")
         )
         print("✅ Login successful with Selenium.")
