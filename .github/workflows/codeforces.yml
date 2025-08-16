@@ -1,0 +1,39 @@
+name: Sync Codeforces Solutions
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # every day at midnight (UTC)
+  workflow_dispatch:      # manual run option
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      - name: Run Codeforces sync script
+        env:
+          CF_USER: ${{ secrets.CF_USER }}
+          CF_PASS: ${{ secrets.CF_PASS }}
+          CF_HANDLE: ${{ secrets.CF_HANDLE }}
+        run: |
+          python cf_sync.py
+
+      - name: Commit and Push changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update solutions [auto]" || echo "No changes"
+          git push
