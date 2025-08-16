@@ -18,17 +18,24 @@ jobs:
         with:
           python-version: "3.10"
 
-      # Step to install Google Chrome and ChromeDriver manually
       - name: Install Google Chrome and ChromeDriver
         run: |
+          # Install Chrome
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          CHROME_VERSION=$(google-chrome --product-version)
-          echo "Chrome version is: $CHROME_VERSION"
-          wget https://chromedriver.storage.googleapis.com/$(echo $CHROME_VERSION | cut -d'.' -f1).0.4896.20/chromedriver_linux64.zip -O /tmp/chromedriver.zip
+
+          # Get the major version of Chrome installed
+          CHROME_VERSION=$(google-chrome --product-version | cut -d '.' -f 1)
+          echo "Chrome major version is: $CHROME_VERSION"
+
+          # Get the latest ChromeDriver URL for the major version
+          DRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build.json" | jq -r ".builds.\"$CHROME_VERSION\".version")
+
+          # Download and install ChromeDriver
+          wget "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$DRIVER_URL/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip
           unzip /tmp/chromedriver.zip -d /tmp/
-          sudo mv /tmp/chromedriver /usr/bin/chromedriver
-          sudo chmod +x /usr/bin/chromedriver
+          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+          sudo chmod +x /usr/local/bin/chromedriver
 
       - name: Install dependencies
         run: |
