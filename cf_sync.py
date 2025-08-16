@@ -2,6 +2,14 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+import time
 
 # -------- CONFIG --------
 CF_HANDLE = os.getenv("CF_HANDLE")
@@ -14,34 +22,65 @@ LOGIN_URL = "https://codeforces.com/enter"
 SESSION = requests.Session()
 
 
-def login():
-    """Login to Codeforces with username & password"""
-    resp = SESSION.get(LOGIN_URL)
-    soup = BeautifulSoup(resp.text, "html.parser")
-    csrf_input = soup.find("input", {"name": "csrf_token"})
-    if csrf_input is None:
-        raise Exception("CSRF token not found on the login page.")
-    csrf = csrf_input["value"]
+def get_driver():
+    """Returns a configured headless Chrome driver"""
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    return driver
 
-    payload = {
-        "csrf_token": csrf,
-        "action": "enter",
-        "handleOrEmail": CF_USER,
-        "password": CF_PASS,
-        "_tta": "176",
-    }
-    SESSION.post(LOGIN_URL, data=payload)
+
+def login_with_selenium(driver):
+    """Logs into Codeforces using Selenium"""
+    driver.get(LOGIN_URL)
+    
+    try:
+        # Wait for username/password fields to be visible
+        username_field = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "handleOrEmail"))
+        )
+        password_field = driver.find_element(By.NAME, "password")
+        
+        username_field.send_keys(CF_USER)
+        password_field.send_keys(CF_PASS)
+        
+        # Click the login button
+        driver.find_element(By.CSS_SELECTOR, ".submit").click()
+
+        # Wait for the login to be successful
+        WebDriverWait(driver, 10).until(
+            EC.url_contains("/profile/")
+        )
+        print("✅ Login successful with Selenium.")
+        
+        # Get cookies and headers to use with requests session
+        cookies = driver.get_cookies()
+        for cookie in cookies:
+            SESSION.cookies.set(cookie['name'], cookie['value'])
+            
+        SESSION.headers = {
+            'User-Agent': driver.execute_script("return navigator.userAgent;")
+        }
+        
+    except Exception as e:
+        print(f"Login failed: {e}")
+        driver.save_screenshot("login_error.png") # For debugging on GitHub Actions
+        raise
 
 
 def fetch_submissions(handle):
-    """Fetch last 30 submissions"""
+    """Fetches last 30 submissions using the authenticated session"""
     url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30"
     res = SESSION.get(url).json()
     return res["result"] if res["status"] == "OK" else []
 
 
 def fetch_code(contest_id, submission_id):
-    """Scrape source code from submission page"""
+    """Scrapes source code from submission page using the session"""
     url = f"https://codeforces.com/contest/{contest_id}/submission/{submission_id}"
     resp = SESSION.get(url)
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -50,7 +89,7 @@ def fetch_code(contest_id, submission_id):
 
 
 def save_solution(sub):
-    """Save accepted solution into repo"""
+    """Saves accepted solution into repo"""
     if sub.get("verdict") != "OK":
         return
 
@@ -66,8 +105,10 @@ def save_solution(sub):
     if os.path.exists(file_path):
         return  # Skip if already exists
 
+    print(f"Attempting to fetch code for submission {sub['id']}...")
     code = fetch_code(contest_id, sub["id"])
     if not code:
+        print(f"Code for submission {sub['id']} not found.")
         return
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -82,8 +123,12 @@ def save_solution(sub):
 
 
 if __name__ == "__main__":
-    login()
-    subs = fetch_submissions(CF_HANDLE)
-    for s in subs:
-        save_solution(s)
-    print("🚀 Sync complete")
+    driver = get_driver()
+    try:
+        login_with_selenium(driver)
+        subs = fetch_submissions(CF_HANDLE)
+        for s in subs:
+            save_solution(s)
+        print("🚀 Sync complete")
+    finally:
+        driver.quit()
