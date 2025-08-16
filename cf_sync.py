@@ -4,10 +4,10 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 # -------- CONFIG --------
-CF_USER = "tainurrahaman"
-CF_PASS = "Tr@velW!thT@!nur1"
-CF_HANDLE = "tainurrahaman"
-REPO_PATH = "."  # local repo path
+CF_HANDLE = os.getenv("CF_HANDLE")
+CF_USER = os.getenv("CF_USER")
+CF_PASS = os.getenv("CF_PASS")
+REPO_PATH = "."  # GitHub runner current repo
 # ------------------------
 
 LOGIN_URL = "https://codeforces.com/enter"
@@ -18,7 +18,10 @@ def login():
     """Login to Codeforces with username & password"""
     resp = SESSION.get(LOGIN_URL)
     soup = BeautifulSoup(resp.text, "html.parser")
-    csrf = soup.find("input", {"name": "csrf_token"})["value"]
+    csrf_input = soup.find("input", {"name": "csrf_token"})
+    if csrf_input is None:
+        raise Exception("CSRF token not found on the login page.")
+    csrf = csrf_input["value"]
 
     payload = {
         "csrf_token": csrf,
